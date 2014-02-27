@@ -1,0 +1,105 @@
+
+for much more info: http://rfunctions.blogspot.com.br/2014/01/edencurve-function-generate-dendrogram.html
+
+edencurve: generate a dendrogram-based extinction curve*
+
+#################################################
+
+Let us begin with the function's arguments:
+
+First argument: comp - a data frame with the following structure:
+__________________________________________
+Ordinal variable     Species 1     Species 2     Species 3
+1                               1                   0                  0
+2                               0                   1                  1
+__________________________________________
+* You cannot place species in two states of the ordinal variable.
+
+Second argument: quant - a data frame with the following structure:
+__________
+name             Quantitative variable
+Species 1                 300
+Species 2                 125
+Species 3                 100
+__________
+* Species in "quant" must have the same names as in "comp".
+
+Third argument: tree - a phylogenetic tree in 'phylo' format.
+
+Fourth argument: rand - the number of randomizations to use when calculating the mean (and standard deviation) of randomized values of PD.
+
+######################################
+
+#The Function:
+
+#########
+#Entering R
+#########
+
+edencurve<-function(comp,quant,tree,rand=2){
+order<-sort(comp[,1])
+complas<-comp[,-1]
+for(i in 1:length(order)){
+comtemp<-comp[which(order==i),]
+assign(paste("com",i,sep=""),comtemp[,-1])
+comlas<-get(paste("com",i,sep=""))
+assign(paste("comlas",i,sep=""),colnames(comlas[which(comlas>0)]))
+assign(paste("leng",i,sep=""),sum(comtemp[,-1]))
+assign(paste("val",i,sep=""),numeric(get(paste("leng",i,sep=""))))
+}
+lengot<-sum(complas[1:length(order),])
+for(j in 1:length(order)){
+com<-get(paste("com",j,sep=""))
+comm<-com[which(com>0)]
+com[1:length(com)]=1
+listcom<-list()
+listcom[[1]]<-comlas1
+for(p in 1:j){  # 2
+ifelse(p<=1,NA,listcom[[(p-1)]]<-get(paste("comlas",(p-1),sep="")))
+}
+unlistcom<-unlist(listcom)
+datunl<-t(data.frame(unlistcom))
+colnames(datunl)<-datunl[1,]
+ifelse(j==1,NA,com<-com[,-which(colnames(com) %in% datunl)])
+masp<-numeric(length(comm))
+for(i in 1:(length(comm))){
+masp[i]<-quant[which(quant[,1]==colnames(comm)[i]),2]
+}
+masmat<-comm[order(-masp)]
+val<-get(paste("val",j,sep=""))
+ifelse(j==length(order),masmat<-masmat[,-((length(masmat)-1):length(masmat))],NA)
+for(l in 1:length(masmat)){
+samp<-masmat[l]
+com<-com[, -which(colnames(com) %in% colnames(samp))]
+val[l]<-pd(com,tree)[1]
+}
+assign(paste("val",j,sep=""),val)
+}
+com<-complas[1,]
+com[1:length(com)]=1
+valot<-numeric(length(com))
+sdot<-numeric(length(com))
+for(i in 1:(length(com)-2)){
+randot<-numeric(rand)
+for(g in 1:rand){
+samp<-sample(colnames(com),(length(com)-i))
+comrand<-com[, which(colnames(com) %in% samp)]
+randot[[g]]<-pd(comrand,tree)[1]
+}
+valot[i]<-mean(unlist(randot))
+sdot[i]<-sd(unlist(randot))
+} 
+Rand.mean<-valot
+Rand.sd<-sdot
+listnames<-list()
+listval<-list()
+for(b in 1:length(order)){
+listnames[[b]]<-rep(b,get(paste("leng",b,sep="")))
+listval[[b]]<-get(paste("val",b,sep=""))
+}
+Category<-unlist(listnames)
+PDobs<-unlist(listval)
+return(cbind(Category,PDobs,Rand.mean,Rand.sd))
+}
+
+##################################################

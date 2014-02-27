@@ -1,0 +1,67 @@
+
+for much more info: http://rfunctions.blogspot.com.br/2012/09/funcrab-function-functional-rarefaction.html
+
+#################################################
+
+First, let us see its Arguments:
+
+comp = Composition matrix with species in collumns, and with their abundances on the second line.
+
+____________________________
+Species           Sp. 1  Sp. 2  Sp. 3
+____________________________
+Abundance         5        7        4
+____________________________
+
+tree = A ".phylo" functional dendrogram (see the post about the calculation of functional diversity for an example of functional dendrogram).
+
+nmin = The minimum abundance + 1 (or species richness if all abundances are equal one) among species (five, on the example given for the 'comp' argument). We do that to avoid getting individuals from the same species, what would prevent us from being able to calculate functional diversity. Default is "two".
+
+n = The highest abundance (or species richness if all abundances are equal one) for which the functional diversity will be estimated. Default is "three".
+
+rand = The number of randomizations for which the mean of functional diversity, the standard deviation and the lower and higher confidence intervals will be calculated. For example, for 2, 3 and 4 individuals, each calculation would have 'rand' numbers of randomizations.
+
+rep = "T", to be able to get the same individual (or species) more than one time on each randomization. "F" (default), to avoid getting the same individual (or species) more than one time for each randomization.
+
+root = "TRUE", to consider the dendrogram's root on the calculation of the functional diversity values. "FALSE" (default), to not consider it.
+
+
+########## You can see the function below. Copy and paste it into R.
+
+library(picante)
+library(ape)
+
+FUNCRAB<-function(comp,tree,nmin=2,n=3,rand=2,rep=F,root=FALSE){
+funcmed<-numeric(n-nmin)
+funcsd<-numeric(n-nmin)
+funcintmin<-numeric(n-nmin)
+funcintmax<-numeric(n-nmin)
+abundance<-rep(colnames(comp),comp[1,])
+for (i in nmin:n){
+numerand<-numeric(rand)
+for (k in 1:rand){
+sampabund<-sample(abundance,i,rep=rep)
+sampcomp=unique(sampabund)
+line=numeric(length(comp))
+c<-rbind(colnames(comp),line)
+c2<-data.frame(c)
+colnames(c2)=c[1,]
+c3<-c2["line",]
+pres<-numeric(length(c3))
+for(l in 1:length(c3)){
+pres[l]<-ifelse(sum(ifelse(colnames(c3)[l]==sampcomp,1,0))>=1,1,0)
+}
+c4<-rbind(comp,pres)[-1,]
+func<-ses.pd(c4,tree,runs=1,iterations=1,include.root=root)
+numerand[k]<-func[1,"pd.obs"]
+}
+funcmed[i]<-sum(numerand)/length(numerand)
+funcsd[i]<-sd(numerand)
+funcintmin[i]<-t.test(numerand)$conf.int[1]
+funcintmax[i]<-t.test(numerand)$conf.int[2]
+}
+funcres<-cbind(funcmed,funcsd,funcintmin,funcintmax)
+return(funcres)
+}
+
+#################################################

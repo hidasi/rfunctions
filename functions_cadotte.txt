@@ -1,0 +1,105 @@
+
+for much more info: http://rfunctions.blogspot.com.br/2013/09/functions-for-phylogenetic-diversity.html
+and: http://rfunctions.blogspot.com.br/2013/07/pae-function-phylogenetic-abundance.html
+
+#################################################
+
+### PAE
+
+library(ape)
+library(picante)
+
+PAE<-function(abund,tree){
+terms <- tree$edge[, 2] <= Ntip(tree)
+terminal.edges <- tree$edge.length[terms]
+names(terminal.edges)<-tree$tip.label
+PDvalue<-sum(tree$edge.length)
+spnames<-names(terminal.edges)
+termabun<-numeric(length(terminal.edges))
+for(i in 1:length(terminal.edges)){
+sp<-spnames[i] # get species names
+termabun[i]<-(terminal.edges[sp])*(abund[sp]-1)
+}
+PAEdividend<-(sum(unlist(termabun)))+PDvalue
+PAEdivisor<-PDvalue+(((sum(abund[which(abund>=0)])/length(abund[which(abund>=0)]))-1)*sum(terminal.edges))
+PAEquotient<-PAEdividend/PAEdivisor
+return(PAEquotient)
+}
+
+
+##################################################
+
+###IAC
+
+IAC<-function(abund,tree){
+spnames<-names(abund)
+abd<-numeric(length(abund))
+for(i in 1:length(abund)){
+sp<-spnames[i]
+abd[i]<-abs((abund[sp])-mean(unlist(abund)))
+}
+return(sum(unlist(abd))/tree$Nnode)
+}
+
+
+#################################################
+
+###Hed and Eed
+
+Hed<-function(abund,tree){    
+PD<-sum(evol.distinct(tree,type="fair.proportion")[,2])
+EDPD<-evol.distinct(tree,type="fair.proportion")[,2]/PD
+Hed<-sum(-(EDPD*log(EDPD)))
+Eed<-Hed/log(length(abund))         
+return(cbind(Hed,Eed))
+}
+
+
+#################################################
+
+###AED
+
+AED<-function(abund,tree){
+p.tree<-multi2di(tree, random = TRUE)
+uninodes<-p.tree$edge[,2][-which(p.tree$edge[,2] %in% 1:length(p.tree$tip.label))]
+infonode<-cbind(p.tree$edge,p.tree$edge.length)
+
+nodevalues<-numeric(length(uninodes))
+for(i in 1:length(uninodes)){
+temptree<-extract.clade(p.tree,uninodes[i])
+abundvalues<-abund[1,which(names(abund) %in% temptree$tip.label)]
+nodevalues[i]<-(infonode[which(infonode[,2]==uninodes[i]),3])/(sum(abundvalues))
+}
+
+nodeabval<-cbind(uninodes,nodevalues)
+tipnums<-data.frame(cbind(p.tree$tip.label,1:length(p.tree$tip.label)))
+
+AED<-numeric(length(abund))
+for(j in 1:length(abund)){
+sp<-tipnums[,1][j]
+nodes <- .get.nodes(p.tree,as.vector(sp))
+splength<-infonode[which(infonode[,2]==as.numeric(as.vector(tipnums[which(tipnums[,1]==sp),2]))),3]
+splength<-splength/(abund[which(colnames(abund)==sp)])
+AED[j]<-(sum(nodeabval[which(nodeabval[,1] %in% nodes),2])) + splength
+}
+
+names(AED)<-tipnums[,1]
+AED<-unlist(AED)
+return(AED)
+}
+
+
+#################################################
+
+###Haed and Eaed
+
+Haed<-function(abund,tree){
+AEDres<-AED(abund,tree)
+PD<-sum(evol.distinct(tree,type="fair.proportion")[,2])
+Haed<- -(sum(((AEDres*abund)/PD)*log(((AEDres*abund)/PD))))
+Eaed<-Haed/log(sum(abund))
+return(cbind(Haed,Eaed))
+}
+
+
+#################################################
